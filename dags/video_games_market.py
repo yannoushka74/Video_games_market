@@ -1,7 +1,7 @@
 """
 DAG pour le traitement des données de jeux vidéo avec Docker
 Auteur: Data Team
-Version: 1.0
+Version: 1.1 - Compatible avec les nouvelles versions d'Airflow
 """
 
 from airflow import DAG
@@ -15,7 +15,7 @@ import os
 default_args = {
     'owner': 'data-team',
     'depends_on_past': False,
-    'start_date': days_ago(1),  # Plus robuste que datetime fixe
+    'start_date': days_ago(1),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 2,
@@ -23,12 +23,12 @@ default_args = {
     'max_active_runs': 1,
 }
 
-# Configuration Docker commune
+# Configuration Docker commune (compatible nouvelles versions)
 DOCKER_CONFIG = {
     'docker_url': 'unix://var/run/docker.sock',
     'network_mode': 'bridge',
-    'auto_remove': True,
-    'force_pull': False,  # Important pour image locale
+    'auto_remove': 'success',  # 'never', 'success', ou 'force'
+    'force_pull': False,
     'mount_tmp_dir': False,
     'tty': True,
 }
@@ -44,17 +44,17 @@ BASE_ENVIRONMENT = {
 }
 
 with DAG(
-    dag_id='video_games_market_pipeline',  # Nom plus standard
+    dag_id='video_games_market_pipeline',
     default_args=default_args,
     description='Pipeline de traitement des données de jeux vidéo avec Docker',
-    schedule_interval=None,  # Déclenchement manuel
+    schedule_interval=None,
     catchup=False,
     max_active_runs=1,
     tags=['videogames', 'docker', 'data-processing'],
     doc_md=__doc__,
 ) as dag:
     
-    # Tâche de démarrage (dummy)
+    # Tâche de démarrage
     start_task = DummyOperator(
         task_id='start_pipeline',
         doc_md="Point de départ du pipeline"
@@ -63,7 +63,7 @@ with DAG(
     # Vérification de l'image Docker
     check_image = DockerOperator(
         task_id='check_docker_image',
-        image='video-games-processor:latest',  # Nom d'image simplifié
+        image='video-games-processor:latest',
         command='python -c "print(\'🐳 Image Docker disponible\'); import sys; sys.exit(0)"',
         environment={
             **BASE_ENVIRONMENT,
@@ -76,7 +76,7 @@ with DAG(
         doc_md="Vérification que l'image Docker est disponible localement"
     )
     
-    # Tâche de préparation de l'environnement
+    # Préparation de l'environnement
     prepare_environment = DockerOperator(
         task_id='prepare_environment',
         image='video-games-processor:latest',
@@ -93,7 +93,7 @@ with DAG(
         doc_md="Préparation de l'environnement et vérification des dépendances"
     )
     
-    # Tâche principale de traitement
+    # Traitement principal
     process_videogames = DockerOperator(
         task_id='process_videogames_data',
         image='video-games-processor:latest',
@@ -110,7 +110,7 @@ with DAG(
         doc_md="Traitement principal des données de jeux vidéo"
     )
     
-    # Tâche de nettoyage
+    # Nettoyage
     cleanup_data = DockerOperator(
         task_id='cleanup_data',
         image='video-games-processor:latest',
@@ -124,11 +124,11 @@ with DAG(
         mem_limit='512m',
         cpus=0.25,
         execution_timeout=timedelta(minutes=5),
-        trigger_rule='all_done',  # S'exécute même si les tâches précédentes échouent
+        trigger_rule='all_done',
         doc_md="Nettoyage des fichiers temporaires et finalisation"
     )
     
-    # Tâche de fin (dummy)
+    # Tâche de fin
     end_task = DummyOperator(
         task_id='end_pipeline',
         trigger_rule='all_done',
@@ -138,7 +138,7 @@ with DAG(
     # Définition des dépendances
     start_task >> check_image >> prepare_environment >> process_videogames >> cleanup_data >> end_task
 
-# Validation du DAG (pour le debugging)
+# Test du DAG (pour debugging)
 if __name__ == '__main__':
     print("🔍 Validation du DAG...")
     print(f"DAG ID: {dag.dag_id}")
