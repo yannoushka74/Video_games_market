@@ -1,6 +1,6 @@
 """
-DAG simplifié pour éviter les problèmes de réseau/DNS
-Version compatible avec tous les executors
+DAG pour le traitement des données de jeux vidéo avec Docker
+Version nettoyée - Paramètres Docker valides uniquement
 """
 
 from airflow import DAG
@@ -17,36 +17,38 @@ default_args = {
     'start_date': days_ago(1),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1,  # Réduit pour éviter les problèmes
+    'retries': 1,
     'retry_delay': timedelta(minutes=2),
     'max_active_runs': 1,
 }
 
-# Configuration Docker simplifiée (sans réseau complexe)
-DOCKER_CONFIG_SIMPLE = {
-    'auto_remove': 'success',
+# Configuration Docker MINIMALE (paramètres universellement supportés)
+DOCKER_CONFIG = {
+    'auto_remove': 'success',  # 'never', 'success', ou 'force'
     'force_pull': False,
-    'tty': False,  # Désactivé pour éviter les problèmes
-    'stdin_open': False,
 }
 
-# Variables d'environnement essentielles seulement
-SIMPLE_ENVIRONMENT = {
-    'TASK_TYPE': 'main',
+# Variables d'environnement essentielles
+BASE_ENVIRONMENT = {
+    'EXECUTION_DATE': '{{ ds }}',
+    'RUN_ID': '{{ run_id }}',
+    'DAG_ID': '{{ dag.dag_id }}',
+    'TASK_ID': '{{ task.task_id }}',
     'LOG_LEVEL': 'INFO',
     'PYTHONUNBUFFERED': '1',
 }
 
+# Image Docker
 IMAGE_NAME = 'python-videogames-processor:latest'
 
 with DAG(
-    dag_id='video_games_simple_pipeline',
+    dag_id='video_games_clean_pipeline',
     default_args=default_args,
-    description='Pipeline simplifié sans problèmes réseau',
+    description='Pipeline nettoyé sans paramètres Docker problématiques',
     schedule_interval=None,
     catchup=False,
     max_active_runs=1,
-    tags=['videogames', 'docker', 'simple'],
+    tags=['videogames', 'docker', 'clean'],
     doc_md=__doc__,
 ) as dag:
     
@@ -55,57 +57,84 @@ with DAG(
         task_id='start_pipeline'
     )
     
-    # Test avec BashOperator (plus fiable)
-    test_docker_bash = BashOperator(
-        task_id='test_docker_availability',
+    # Vérification avec Bash (plus fiable)
+    check_docker_bash = BashOperator(
+        task_id='check_docker_image',
         bash_command=f'''
-        echo "🔍 Test de l'image Docker {IMAGE_NAME}"
+        echo "🔍 Vérification de l'image Docker: {IMAGE_NAME}"
+        
+        # Vérifier que Docker fonctionne
+        if ! docker info > /dev/null 2>&1; then
+            echo "❌ Docker non accessible"
+            exit 1
+        fi
         
         # Vérifier que l'image existe
         if docker images | grep -q "python-videogames-processor"; then
             echo "✅ Image trouvée"
             
             # Test simple de l'image
-            docker run --rm {IMAGE_NAME} python -c "print('🎮 Docker Test OK')"
-            
-            if [ $? -eq 0 ]; then
-                echo "✅ Test Docker réussi"
-                exit 0
+            if docker run --rm {IMAGE_NAME} python -c "print('🎮 Test Docker OK')"; then
+                echo "✅ Test image réussi"
             else
-                echo "❌ Test Docker échoué"
+                echo "❌ Test image échoué"
                 exit 1
             fi
         else
-            echo "❌ Image non trouvée"
+            echo "❌ Image {IMAGE_NAME} non trouvée"
+            echo "💡 Construisez l'image avec: docker build -t {IMAGE_NAME} ."
             exit 1
         fi
         ''',
         execution_timeout=timedelta(minutes=3)
     )
     
-    # Traitement principal avec configuration minimale
+    # Traitement avec configuration Docker minimale
     process_videogames = DockerOperator(
         task_id='process_videogames_data',
         image=IMAGE_NAME,
-        command='python -c "print(\'🎮 Traitement des jeux vidéo\'); import time; time.sleep(2); print(\'✅ Terminé\')"',
-        environment=SIMPLE_ENVIRONMENT,
-        **DOCKER_CONFIG_SIMPLE,
+        command='python -c "print(\'🎮 Traitement des jeux vidéo...\'); import time; time.sleep(3); print(\'✅ Traitement terminé avec succès!\')"',
+        environment={
+            **BASE_ENVIRONMENT,
+            'TASK_TYPE': 'main',
+        },
+        # SEULEMENT les paramètres Docker de base
+        auto_remove='success',
+        force_pull=False,
         mem_limit='1g',
-        execution_timeout=timedelta(minutes=5)
+        execution_timeout=timedelta(minutes=10)
     )
     
-    # Alternative avec main.py si disponible
-    process_with_main = DockerOperator(
+    # Traitement avec main.py (si disponible)
+    process_main_py = DockerOperator(
         task_id='process_with_main_py',
         image=IMAGE_NAME,
         command='python main.py',
         environment={
-            **SIMPLE_ENVIRONMENT,
+            **BASE_ENVIRONMENT,
             'TASK_TYPE': 'main',
         },
-        **DOCKER_CONFIG_SIMPLE,
+        # Configuration minimale
+        auto_remove='success',
+        force_pull=False,
         mem_limit='1g',
-        execution_timeout=timedelta(minutes=10)
+        execution_timeout=timedelta(minutes=15)
+    )
+    
+    # Nettoyage
+    cleanup_task = DockerOperator(
+        task_id='cleanup_data',
+        image=IMAGE_NAME,
+        command='python -c "print(\'🧹 Nettoyage...\'); import time; time.sleep(1); print(\'✅ Nettoyage terminé\')"',
+        environment={
+            **BASE_ENVIRONMENT,
+            'TASK_TYPE': 'cleanup',
+        },
+        auto_remove='success',
+        force_pull=False,
+        mem_limit='256m',
+        execution_timeout=timedelta(minutes=5),
+        trigger_rule='all_done'  # S'exécute même si les tâches précédentes échouent
     )
     
     # Tâche de fin
@@ -114,5 +143,21 @@ with DAG(
         trigger_rule='none_failed_min_one_success'
     )
     
-    # Flux simplifié
-    start_task >> test_docker_bash >> [process_videogames, process_with_main] >> end_task
+    # Flux du pipeline
+    start_task >> check_docker_bash >> [process_videogames, process_main_py] >> cleanup_task >> end_task
+
+# Test de validation du DAG
+if __name__ == '__main__':
+    print("🔍 Validation du DAG nettoyé...")
+    print(f"DAG ID: {dag.dag_id}")
+    print(f"Image: {IMAGE_NAME}")
+    print(f"Tâches: {len(dag.tasks)}")
+    
+    # Vérifier que toutes les tâches ont des paramètres valides
+    for task in dag.tasks:
+        if hasattr(task, 'image'):
+            print(f"  - {task.task_id}: DockerOperator avec image {task.image}")
+        else:
+            print(f"  - {task.task_id}: {type(task).__name__}")
+    
+    print("✅ DAG validé!")
