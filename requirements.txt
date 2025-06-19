@@ -1,0 +1,27 @@
+# Requirements.txt pour le traitement des jeux vidéo
+# Dépendances principales
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+
+# Pour l'analyse de données
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scipy>=1.10.0
+
+# Pour les API et bases de données
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pymongo>=4.4.0
+
+# Utilitaires
+python-dotenv>=1.0.0
+pyyaml>=6.0
+click>=8.1.0
+
+# Pour les logs et monitoring
+structlog>=23.1.0
+
+# Pour les tests (optionnel)
+pytest>=7.4.0
+pytest-cov>=4.1.0

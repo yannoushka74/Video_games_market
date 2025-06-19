@@ -16,20 +16,20 @@ with DAG(
     default_args=default_args,
     schedule_interval=None,  # Pas d'exécution automatique
     catchup=False,
-    tags=["videogames", "git-sync", "docker"],
-    description="Pipeline d'achat de jeux vidéo avec Docker et Git"
+    tags=["videogames", "git-sync", "docker", "local"],
+    description="Pipeline d'achat de jeux vidéo avec Docker local"
 ) as dag:
     
-    # Tâche principale avec DockerOperator
+    # Tâche principale avec DockerOperator (IMAGE LOCALE)
     process_videogames = DockerOperator(
         task_id="process_buy_videogames",
-        image="python-videogames-processor:latest",  # À remplacer par votre image
+        image="python-videogames-processor:latest",  # Image locale uniquement
         
-        # Configuration Docker
+        # Configuration Docker locale
         docker_url="unix://var/run/docker.sock",
         network_mode="bridge",
         auto_remove=True,
-        force_pull=False,
+        force_pull=False,  # Important : ne pas essayer de pull depuis un registry
         
         # Variables d'environnement pour le script
         environment={
@@ -38,7 +38,7 @@ with DAG(
             'DAG_ID': '{{ dag.dag_id }}',
             'TASK_ID': '{{ task.task_id }}',
             'LOG_LEVEL': 'INFO',
-            'GIT_BRANCH': 'main',  # ou via une Variable Airflow
+            'TASK_TYPE': 'main',
         },
         
         # Ressources et limites
@@ -49,38 +49,32 @@ with DAG(
         timeout=1800,  # 30 minutes
         execution_timeout=timedelta(hours=1),
         
-        # Volumes si nécessaire (optionnel)
-        # mounts=[
-        #     Mount(source='/opt/airflow/data', target='/app/data', type='bind', read_only=True),
-        #     Mount(source='/opt/airflow/output', target='/app/output', type='bind')
-        # ],
-        
-        # Configuration de connexion Docker (si registre privé)
-        # docker_conn_id='docker_registry_conn',
+        # PAS de docker_conn_id car c'est local
+        # docker_conn_id='docker_registry_conn',  # Commenté pour local
     )
     
-    # Optionnel : Tâche de préparation
+    # Tâche de préparation
     prepare_environment = DockerOperator(
         task_id="prepare_environment",
-        image="python-videogames-processor:latest",
-        command=["python", "-c", "print('🔧 Environnement préparé pour le traitement des jeux vidéo')"],
+        image="python-videogames-processor:latest",  # Même image locale
         
         environment={
             'TASK_TYPE': 'preparation',
             'LOG_LEVEL': 'DEBUG',
+            'EXECUTION_DATE': '{{ ds }}',
         },
         
         auto_remove=True,
+        force_pull=False,  # Pas de pull
         mem_limit='1g',
         cpus=0.5,
         timeout=300,  # 5 minutes
     )
     
-    # Optionnel : Tâche de nettoyage
+    # Tâche de nettoyage
     cleanup_data = DockerOperator(
         task_id="cleanup_data",
-        image="python-videogames-processor:latest",
-        command=["python", "-c", "print('🧹 Nettoyage terminé')"],
+        image="python-videogames-processor:latest",  # Même image locale
         
         environment={
             'TASK_TYPE': 'cleanup',
@@ -88,6 +82,7 @@ with DAG(
         },
         
         auto_remove=True,
+        force_pull=False,  # Pas de pull
         mem_limit='512m',
         cpus=0.25,
         timeout=300,
