@@ -1,7 +1,6 @@
 """
 DAG pour le traitement des données de jeux vidéo avec Docker
-Auteur: Data Team
-Version: 1.1 - Compatible avec les nouvelles versions d'Airflow
+Version finale corrigée avec le bon nom d'image
 """
 
 from airflow import DAG
@@ -9,7 +8,6 @@ from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.utils.dates import days_ago
 from datetime import datetime, timedelta
-import os
 
 # Configuration du DAG
 default_args = {
@@ -23,11 +21,11 @@ default_args = {
     'max_active_runs': 1,
 }
 
-# Configuration Docker commune (compatible nouvelles versions)
+# Configuration Docker commune
 DOCKER_CONFIG = {
     'docker_url': 'unix://var/run/docker.sock',
     'network_mode': 'bridge',
-    'auto_remove': 'success',  # 'never', 'success', ou 'force'
+    'auto_remove': 'success',
     'force_pull': False,
     'mount_tmp_dir': False,
     'tty': True,
@@ -42,6 +40,9 @@ BASE_ENVIRONMENT = {
     'LOG_LEVEL': 'INFO',
     'PYTHONUNBUFFERED': '1',
 }
+
+# NOM D'IMAGE CORRECT
+IMAGE_NAME = 'python-videogames-processor:latest'
 
 with DAG(
     dag_id='video_games_market_pipeline',
@@ -63,7 +64,7 @@ with DAG(
     # Vérification de l'image Docker
     check_image = DockerOperator(
         task_id='check_docker_image',
-        image='python-videogames-processor:latest',
+        image=IMAGE_NAME,
         command='python -c "print(\'🐳 Image Docker disponible\'); import sys; sys.exit(0)"',
         environment={
             **BASE_ENVIRONMENT,
@@ -79,7 +80,7 @@ with DAG(
     # Préparation de l'environnement
     prepare_environment = DockerOperator(
         task_id='prepare_environment',
-        image='python-videogames-processor:latest',
+        image=IMAGE_NAME,
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
@@ -96,7 +97,7 @@ with DAG(
     # Traitement principal
     process_videogames = DockerOperator(
         task_id='process_videogames_data',
-        image='python-videogames-processor:latest',
+        image=IMAGE_NAME,
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
@@ -113,7 +114,7 @@ with DAG(
     # Nettoyage
     cleanup_data = DockerOperator(
         task_id='cleanup_data',
-        image='python-videogames-processor:latest',
+        image=IMAGE_NAME,
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
@@ -138,12 +139,10 @@ with DAG(
     # Définition des dépendances
     start_task >> check_image >> prepare_environment >> process_videogames >> cleanup_data >> end_task
 
-# Test du DAG (pour debugging)
+# Test du DAG
 if __name__ == '__main__':
     print("🔍 Validation du DAG...")
     print(f"DAG ID: {dag.dag_id}")
+    print(f"Image utilisée: {IMAGE_NAME}")
     print(f"Nombre de tâches: {len(dag.tasks)}")
-    print("Tâches:")
-    for task in dag.tasks:
-        print(f"  - {task.task_id}")
     print("✅ DAG valide!")
