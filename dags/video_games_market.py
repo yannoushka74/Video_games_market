@@ -96,7 +96,7 @@ with DAG(
     # Traitement principal
     process_videogames = DockerOperator(
         task_id='process_videogames_data',
-        image='video-games-processor:latest',
+        image='python-videogames-processor:latest',
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
@@ -113,7 +113,7 @@ with DAG(
     # Nettoyage
     cleanup_data = DockerOperator(
         task_id='cleanup_data',
-        image='video-games-processor:latest',
+        image='python-videogames-processor:latest',
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
