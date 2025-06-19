@@ -79,7 +79,7 @@ with DAG(
     # Préparation de l'environnement
     prepare_environment = DockerOperator(
         task_id='prepare_environment',
-        image='video-games-processor:latest',
+        image='python-videogames-processor:latest',
         command='python main.py',
         environment={
             **BASE_ENVIRONMENT,
