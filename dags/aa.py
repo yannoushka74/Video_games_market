@@ -6,7 +6,7 @@ def hello():
     print("✅ DAG synchronisé depuis Git avec succès !")
 
 with DAG(
-    dag_id="test_git_sync_dag",
+    dag_id="pl_main_videogames",
     start_date=datetime(2024, 1, 1),
     schedule_interval=None,  # Pas d'exécution automatique
     catchup=False,
