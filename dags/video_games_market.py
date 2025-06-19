@@ -63,7 +63,7 @@ with DAG(
     # Vérification de l'image Docker
     check_image = DockerOperator(
         task_id='check_docker_image',
-        image='video-games-processor:latest',
+        image='python-videogames-processor:latest',
         command='python -c "print(\'🐳 Image Docker disponible\'); import sys; sys.exit(0)"',
         environment={
             **BASE_ENVIRONMENT,
