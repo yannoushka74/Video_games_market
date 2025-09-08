@@ -1,14 +1,9 @@
-"""
-DAG pour le traitement des données de jeux vidéo avec Docker
-Version nettoyée - Paramètres Docker valides uniquement
-"""
-
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
-from airflow.operators.dummy import DummyOperator
+from airflow.operators.empty import EmptyOperator  # <-- Remplacement de DummyOperator
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 # Configuration du DAG
 default_args = {
@@ -53,7 +48,7 @@ with DAG(
 ) as dag:
     
     # Tâche de démarrage
-    start_task = DummyOperator(
+    start_task = EmptyOperator(
         task_id='start_pipeline'
     )
     
@@ -138,7 +133,7 @@ with DAG(
     )
     
     # Tâche de fin
-    end_task = DummyOperator(
+    end_task = EmptyOperator(
         task_id='end_pipeline',
         trigger_rule='none_failed_min_one_success'
     )
