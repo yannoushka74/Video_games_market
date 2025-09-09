@@ -37,7 +37,7 @@ with DAG(
     dag_id='video_games_clean_pipeline',
     default_args=default_args,
     description='Pipeline nettoyé sans paramètres Docker problématiques',
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
     max_active_runs=1,
     tags=['videogames', 'docker', 'clean'],
