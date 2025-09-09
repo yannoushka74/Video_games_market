@@ -2,8 +2,17 @@ from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.empty import EmptyOperator  # <-- Remplacement de DummyOperator
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
-from datetime import timedelta
+from datetime import timedelta,datetime
+
+default_args = {
+    'owner': 'data-team',
+    'depends_on_past': False,
+    'start_date': datetime(2023, 9, 1),  # Remplacez par une date adaptée à votre contexte
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=2),
+}
 
 # Configuration du DAG
 default_args = {
