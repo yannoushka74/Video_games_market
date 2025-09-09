@@ -14,18 +14,6 @@ default_args = {
     'retry_delay': timedelta(minutes=2),
 }
 
-# Configuration du DAG
-default_args = {
-    'owner': 'data-team',
-    'depends_on_past': False,
-    'start_date': days_ago(1),
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=2),
-    'max_active_runs': 1,
-}
-
 # Configuration Docker MINIMALE (paramètres universellement supportés)
 DOCKER_CONFIG = {
     'auto_remove': 'success',  # 'never', 'success', ou 'force'
